@@ -1,0 +1,31 @@
+# banana only recently (2022-11-15) added custom build commands,
+#  including the addition of secrets via `ARG/--build-arg`,
+#  so we've split the build into two separate Dockerfiles,
+#  where the first uses a custom build command and the second
+#  builds on top of it.
+# This is the first container. See the Makefile for the build command.
+
+# 🍌: Must use a Cuda version 11+
+FROM pytorch/pytorch:1.12.0-cuda11.3-cudnn8-runtime
+
+WORKDIR /
+
+# 🍌: Install git
+RUN apt-get update && apt-get install -y git
+
+# 🍌: Install python packages
+RUN pip3 install --upgrade pip
+ADD requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+# 🍌: We add the banana boilerplate here
+ADD server.py .
+
+# 🍌: Add your model weight files
+## add source
+ADD text_recognizer/ text_recognizer/
+## handle environment
+ENV PYTHONPATH=.
+## download model weights from W&B
+##  using the .netrc secret file provided in build with id netrc
+RUN --mount=type=secret,id=netrc,dst=/root/.netrc python3 text_recognizer/get_model.py --entity=cfrye59 --from_project=fsdl-text-recognizer-2021-training
